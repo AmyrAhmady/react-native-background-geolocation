@@ -19,7 +19,7 @@ import com.marianhello.bgloc.PluginDelegate;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.data.BackgroundActivity;
 import com.marianhello.bgloc.data.BackgroundLocation;
-import com.marianhello.bgloc.data.EosTransactionInfo;
+import com.marianhello.bgloc.react.data.EosTransactionInfo;
 import com.marianhello.bgloc.react.data.LocationMapper;
 import com.marianhello.bgloc.react.headless.HeadlessTaskRunner;
 import com.marianhello.logging.LogEntry;
