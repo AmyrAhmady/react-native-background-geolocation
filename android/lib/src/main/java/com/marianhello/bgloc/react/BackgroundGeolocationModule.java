@@ -116,6 +116,9 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
         promise.resolve("Success");
     }
 
+    /**
+     * Set the parameter names based on the struct.
+     */
     @ReactMethod
     public void setParams(String account, String latitude, String longitude, final Promise promise) {
         params = new String[] { account, latitude, longitude };
@@ -376,6 +379,25 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
         sendEvent(ERROR_EVENT, out);
     }
 
+    /**
+     * Updates the location in the blockchain.
+     */
+    private void sendTransaction(BackgroundLocation location) {
+        if (params != null && transactionInfo != null) {
+            JSONObject data_blob = new JSONObject();
+            try {
+                data_blob.put(params[0], transactionInfo.getPermissionAccount());
+                data_blob.put(params[1], location.getLatitude());
+                data_blob.put(params[2], location.getLongitude());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            eosModule.pushAction(transactionInfo.getContract(), transactionInfo.getAction(), data_blob.toString(),
+                    transactionInfo.getPermissionAccount(), transactionInfo.getPermissionType(), transactionInfo.getPrivateKey(), null);
+            logger.debug("Sent location to blockchain");
+        }
+    }
+
     public int getAuthorizationStatus() {
         return facade.getAuthorizationStatus();
     }
@@ -391,16 +413,7 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
 
     @Override
     public void onLocationChanged(BackgroundLocation location) {
-        JSONObject data_blob = new JSONObject();
-        try {
-            data_blob.put(params[0], transactionInfo.getPermissionAccount());
-            data_blob.put(params[1], location.getLatitude());
-            data_blob.put(params[2], location.getLongitude());
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        eosModule.pushAction(transactionInfo.getContract(), transactionInfo.getAction(), data_blob.toString(),
-                transactionInfo.getPermissionAccount(), transactionInfo.getPermissionType(), transactionInfo.getPrivateKey(), null);
+        sendTransaction(location);
         sendEvent(LOCATION_EVENT, LocationMapper.toWriteableMapWithId(location));
     }
 
@@ -444,3 +457,4 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
         sendEvent(HTTP_AUTHORIZATION_EVENT, null);
     }
 }
+
