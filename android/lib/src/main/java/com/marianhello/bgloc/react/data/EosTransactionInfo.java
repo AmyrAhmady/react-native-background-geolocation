@@ -1,4 +1,4 @@
-package com.marianhello.bgloc.data;
+package com.marianhello.bgloc.react.data;
 
 public class EosTransactionInfo {
     private String contract;
