@@ -5,6 +5,7 @@ import android.content.Context;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -18,12 +19,15 @@ import com.marianhello.bgloc.PluginDelegate;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.data.BackgroundActivity;
 import com.marianhello.bgloc.data.BackgroundLocation;
+import com.marianhello.bgloc.react.data.EosTransactionInfo;
 import com.marianhello.bgloc.react.data.LocationMapper;
 import com.marianhello.bgloc.react.headless.HeadlessTaskRunner;
 import com.marianhello.logging.LogEntry;
 import com.marianhello.logging.LoggerManager;
+import io.plactal.eoscommander.app.EosCommanderApp;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.Collection;
 
@@ -47,6 +51,9 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
 
     private BackgroundGeolocationFacade facade;
     private org.slf4j.Logger logger;
+    private EosCommanderApp eosModule;
+    private EosTransactionInfo transactionInfo;
+    private String[] params;
 
     public static class ErrorMap {
         public static ReadableMap from(String message, int code) {
@@ -88,6 +95,34 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
 
         facade = new BackgroundGeolocationFacade(getContext(), this);
         logger = LoggerManager.getLogger(BackgroundGeolocationModule.class);
+        eosModule = new EosCommanderApp(reactContext);
+    }
+
+    /**
+     * Set your connection to your EOS.
+     */
+    @ReactMethod
+    public void setUrl(String scheme, String url, int port, final Promise promise) {
+        eosModule.setUrl(scheme, url, port);
+        promise.resolve("Success");
+    }
+
+    /**
+     * Set the transaction info that updates the coordinates in the blockchain.
+     */
+    @ReactMethod
+    public void setTransactionInfo(String contract, String action, String permissionAccount, String permissionType, String privateKey, final Promise promise) {
+        transactionInfo = new EosTransactionInfo(contract, action, permissionAccount, permissionType, privateKey);
+        promise.resolve("Success");
+    }
+
+    /**
+     * Set the parameter names based on the struct.
+     */
+    @ReactMethod
+    public void setParams(String account, String latitude, String longitude, final Promise promise) {
+        params = new String[] { account, latitude, longitude };
+        promise.resolve("Success");
     }
 
     @Override
@@ -344,6 +379,25 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
         sendEvent(ERROR_EVENT, out);
     }
 
+    /**
+     * Updates the location in the blockchain.
+     */
+    private void sendTransaction(BackgroundLocation location) {
+        if (params != null && transactionInfo != null) {
+            JSONObject data_blob = new JSONObject();
+            try {
+                data_blob.put(params[0], transactionInfo.getPermissionAccount());
+                data_blob.put(params[1], location.getLatitude());
+                data_blob.put(params[2], location.getLongitude());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            eosModule.pushAction(transactionInfo.getContract(), transactionInfo.getAction(), data_blob.toString(),
+                    transactionInfo.getPermissionAccount(), transactionInfo.getPermissionType(), transactionInfo.getPrivateKey(), null);
+            logger.debug("Sent location to blockchain");
+        }
+    }
+
     public int getAuthorizationStatus() {
         return facade.getAuthorizationStatus();
     }
@@ -359,6 +413,7 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
 
     @Override
     public void onLocationChanged(BackgroundLocation location) {
+        sendTransaction(location);
         sendEvent(LOCATION_EVENT, LocationMapper.toWriteableMapWithId(location));
     }
 
@@ -402,3 +457,4 @@ public class BackgroundGeolocationModule extends ReactContextBaseJavaModule impl
         sendEvent(HTTP_AUTHORIZATION_EVENT, null);
     }
 }
+
